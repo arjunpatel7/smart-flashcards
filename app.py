@@ -35,7 +35,16 @@ if ('entailment' not in st.session_state):
     st.session_state["et"] = 0
 
 
-et_classifier = pipeline('zero-shot-classification', model='roberta-large-mnli')
+#et_classifier = pipeline('zero-shot-classification', model='roberta-large-mnli')
+import requests
+API_URL = "https://api-inference.huggingface.co/models/roberta-large-mnli"
+API_TOKEN = st.secrets["huggingface"]
+headers = {"Authorization": "Bearer {API_TOKEN}"}
+
+def query(payload):
+	response = requests.post(API_URL, headers=headers, json=payload)
+	return response.json()
+	
 
 
 co = cohere.Client(st.secrets["cohere_key"])
@@ -95,12 +104,28 @@ def calculate_ss_transformers(response, answer):
     e2 = mod.encode(answer)
     return util.cos_sim(e1, e2)
 
-def calculate_entailment(response, answer):
-    # given two sentences, determines if response follows answer or contradicts
-    candidate_labels = ["ENTAILMENT", "CONTRADICTION"]
-    result = et_classifier(response + ". " + answer,candidate_labels)
-    # return entailment score
-    return result["labels"][1]
+#def calculate_entailment(response, answer):
+#    # given two sentences, determines if response follows answer or contradicts
+#    candidate_labels = ["ENTAILMENT", "CONTRADICTION"]
+#    result = et_classifier(response + ". " + answer,candidate_labels)
+#    # return entailment score
+#    return result["labels"][1]
+
+
+def calculate_entailment_api(response, answer):
+    data = query(
+    {
+        "inputs": response + ". " + answer,
+        "parameters": {"candidate_labels": ["ENTAILMENT", "CONTRADICTION"]},
+    })
+
+    actual_score = 0
+    for label, score in zip(data["labels"], data["scores"]):
+        if label == "ENTAILMENT":
+            actual_score = score
+    return actual_score
+
+
 
 def calculate_metrics(response, answer):
     #ex_match_metric = evaluate.load("exact_match")
@@ -119,7 +144,7 @@ def calculate_metrics(response, answer):
     bleu = calculate_BLEU(response, answer)
     rouge = calculate_ROUGE(response, answer)
 
-    et = calculate_entailment(response, answer)
+    et = calculate_entailment_api(response, answer)
 
     st.session_state["et"] = et
     st.session_state["bleu"] = bleu
