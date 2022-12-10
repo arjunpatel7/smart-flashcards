@@ -17,10 +17,10 @@ from nltk import jaccard_distance
 if ('memo' not in st.session_state):
     st.session_state["Exact Match"]= 0
 
-if ('Semantic Similarity' not in st.session_state):
+if ('cohere' not in st.session_state):
     st.session_state["cohere"]= 0
 
-if ("Semantic Similarity Transformers" not in st.session_state):
+if ('transformers' not in st.session_state):
     st.session_state["transformers"] = 0
 
 if ('bleu' not in st.session_state):
