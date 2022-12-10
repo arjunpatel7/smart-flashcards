@@ -7,4 +7,6 @@ numpy
 textacy
 rouge_score
 transformers
+requests
+json
 sentence_transformers

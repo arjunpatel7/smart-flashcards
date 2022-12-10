@@ -37,14 +37,15 @@ if ('entailment' not in st.session_state):
 
 #et_classifier = pipeline('zero-shot-classification', model='roberta-large-mnli')
 import requests
+import json
 API_URL = "https://api-inference.huggingface.co/models/roberta-large-mnli"
 API_TOKEN = st.secrets["huggingface"]
-headers = {"Authorization": "Bearer {API_TOKEN}"}
+headers = {"Authorization": f"Bearer {API_TOKEN}"}
 
 def query(payload):
-	response = requests.post(API_URL, headers=headers, json=payload)
-	return response.json()
-	
+    data = json.dumps(payload)
+    response = requests.request("POST", API_URL, headers=headers, data=data)
+    return json.loads(response.content.decode("utf-8"))
 
 
 co = cohere.Client(st.secrets["cohere_key"])
@@ -116,15 +117,15 @@ def calculate_entailment_api(response, answer):
     data = query(
     {
         "inputs": response + ". " + answer,
-        "parameters": {"candidate_labels": ["ENTAILMENT", "CONTRADICTION"]},
     })
+    data = data[0]
 
     actual_score = 0
-    for label, score in zip(data["labels"], data["scores"]):
-        if label == "ENTAILMENT":
-            actual_score = score
-    return actual_score
-
+    st.write(data)
+    for result in data:
+        # returns a list of dict that has each label and score
+        if result["label"] == "ENTAILMENT":
+            return result["score"]
 
 
 def calculate_metrics(response, answer):
@@ -159,7 +160,7 @@ if (response != "") and (answer != ""):
    #st.metric(label = "Memorization", value = st.session_state["Exact Match"])
     st.metric(label = "BLEU", value = st.session_state["bleu"])
     st.metric(label = "ROUGE", value = st.session_state["rouge"])
-    st.metric(label = "Entailment Probability?", value = st.session_state["et"])
+    st.metric(label = "Entailment Probability", value = st.session_state["et"])
     st.metric(label = "Semantic Similarity Cohere", value = st.session_state["cohere"])
     st.metric(label = "Semantic Similarity Transformers", value = st.session_state["transformers"])
 
