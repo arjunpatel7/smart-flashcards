@@ -4,6 +4,7 @@ import cohere
 import numpy as np
 from nltk import jaccard_distance
 from textacy.preprocessing.remove import punctuation
+from transformers import pipeline
 
 # create a textbox for input of response
 
@@ -29,6 +30,12 @@ if ('bleu' not in st.session_state):
 
 if ('rouge' not in st.session_state):
     st.session_state["rouge"] = 0
+
+if ('entailment' not in st.session_state):
+    st.session_state["et"] = 0
+
+
+et_classifier = pipeline('zero-shot-classification', model='roberta-large-mnli')
 
 
 co = cohere.Client(st.secrets["cohere_key"])
@@ -88,6 +95,13 @@ def calculate_ss_transformers(response, answer):
     e2 = mod.encode(answer)
     return util.cos_sim(e1, e2)
 
+def calculate_entailment(response, answer):
+    # given two sentences, determines if response follows answer or contradicts
+    candidate_labels = ["ENTAILMENT", "CONTRADICTION"]
+    result = et_classifier(response + ". " + answer,candidate_labels)
+    # return contradiction score
+    return result["labels"][0]
+
 def calculate_metrics(response, answer):
     #ex_match_metric = evaluate.load("exact_match")
     #ex_match_score = ex_match_metric.compute(references = [answer], prediction = [response])
@@ -105,6 +119,9 @@ def calculate_metrics(response, answer):
     bleu = calculate_BLEU(response, answer)
     rouge = calculate_ROUGE(response, answer)
 
+    et = calculate_entailment(response, answer)
+
+    st.session_state["et"] = et
     st.session_state["bleu"] = bleu
     st.session_state["cohere"] = semantic_cohere
     st.session_state["transformers"] = semantic_transformers
@@ -117,6 +134,7 @@ if (response != "") and (answer != ""):
    #st.metric(label = "Memorization", value = st.session_state["Exact Match"])
     st.metric(label = "BLEU", value = st.session_state["bleu"])
     st.metric(label = "ROUGE", value = st.session_state["rouge"])
+    st.metric(label = "Contradiction Probability?", value = st.session_state["et"])
     st.metric(label = "Semantic Similarity Cohere", value = st.session_state["cohere"])
     st.metric(label = "Semantic Similarity Transformers", value = st.session_state["transformers"])
 
