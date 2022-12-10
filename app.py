@@ -18,11 +18,10 @@ if ('memo' not in st.session_state):
     st.session_state["Exact Match"]= 0
 
 if ('Semantic Similarity' not in st.session_state):
-    st.session_state["Semantic Similarity"]= 0
+    st.session_state["cohere"]= 0
 
-
-
-
+if ("Semantic Similarity Transformers" not in st.session_state):
+    st.session_state["transformers"] = 0
 
 
 co = cohere.Client(st.secrets["cohere_key"])
@@ -71,21 +70,36 @@ def calculate_semantic_similarity(response, answer):
     
     return cos_sim
 
+from sentence_transformers import SentenceTransformer, util
+mod = SentenceTransformer("all-MiniLM-L6-v2")
+
+def calculate_ss_transformers(response, answer):
+    e1 = mod.encode(response)
+    e2 = mod.encode(answer)
+    return util.cos_sim(e1, e2)
+
 def calculate_metrics(response, answer):
     #ex_match_metric = evaluate.load("exact_match")
     #ex_match_score = ex_match_metric.compute(references = [answer], prediction = [response])
     #st.session_state["Exact Match"] = ex_match_score
     #jaq = jaccard_distance(response, answer)
-    semantic = calculate_semantic_similarity(response, answer)
+
+    if (response == "") or (answer == ""):
+        return 
+
+    semantic_cohere = calculate_semantic_similarity(response, answer)
+    semantic_transformers = calculate_ss_transformers(response, answer)
     #bleu = calculate_BLEU(response, answer)
-    st.session_state["Semantic Similarity"] = semantic
+    st.session_state["cohere"] = semantic_cohere
+    st.session_state["transformers"] = semantic_transformers
 
 
 
 if (response != "") and (answer != ""):
     button_click = st.button("Calculate scores", on_click =calculate_metrics(response, answer))
    #st.metric(label = "Memorization", value = st.session_state["Exact Match"])
-    st.metric(label = "Semantic Similarity", value = st.session_state["Semantic Similarity"])
+    st.metric(label = "Semantic Similarity Cohere", value = st.session_state["cohere"])
+    st.metric(label = "Semantic Similarity Transformers", value = st.session_state["transformers"])
 
 
 
