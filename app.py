@@ -27,6 +27,9 @@ if ('transformers' not in st.session_state):
 if ('bleu' not in st.session_state):
     st.session_state["bleu"] = 0
 
+if ('rouge' not in st.session_state):
+    st.session_state["rouge"] = 0
+
 
 co = cohere.Client(st.secrets["cohere_key"])
 
@@ -47,7 +50,9 @@ def calculate_jaccard(response, answer):
     return 1 - jd
 
 def calculate_ROUGE(response, answer):
-    pass
+    rouge = evaluate.load("rouge")
+    result = rouge.compute(predictions = [response], references = [answer])["rougeL"]
+    return result
 
 def calculate_BLEU(response, answer):
     # requires length 4
@@ -98,10 +103,12 @@ def calculate_metrics(response, answer):
     semantic_cohere = calculate_semantic_similarity(response, answer)
     semantic_transformers = calculate_ss_transformers(response, answer)
     bleu = calculate_BLEU(response, answer)
+    rouge = calculate_ROUGE(response, answer)
 
     st.session_state["bleu"] = bleu
     st.session_state["cohere"] = semantic_cohere
     st.session_state["transformers"] = semantic_transformers
+    st.session_state["rouge"] = rouge
 
 
 
@@ -109,6 +116,7 @@ if (response != "") and (answer != ""):
     button_click = st.button("Calculate scores", on_click =calculate_metrics(response, answer))
    #st.metric(label = "Memorization", value = st.session_state["Exact Match"])
     st.metric(label = "BLEU", value = st.session_state["bleu"])
+    st.metric(label = "ROUGE", value = st.session_state["rouge"])
     st.metric(label = "Semantic Similarity Cohere", value = st.session_state["cohere"])
     st.metric(label = "Semantic Similarity Transformers", value = st.session_state["transformers"])
 
