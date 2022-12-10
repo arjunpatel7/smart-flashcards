@@ -23,6 +23,9 @@ if ('Semantic Similarity' not in st.session_state):
 if ("Semantic Similarity Transformers" not in st.session_state):
     st.session_state["transformers"] = 0
 
+if ('bleu' not in st.session_state):
+    st.session_state["bleu"] = 0
+
 
 co = cohere.Client(st.secrets["cohere_key"])
 
@@ -49,8 +52,9 @@ def calculate_BLEU(response, answer):
 
     #https://huggingface.co/spaces/evaluate-metric/bleu
 
-    bleu_score = evaluate.load("bleu")
-    return bleu_score.compute(references = answer, predictions = response)
+    bleu_score = evaluate.load("sacrebleu")
+    return bleu_score.compute(references = [answer], predictions = [response],
+    lowercase = True)["score"]/100
 
 
 def calculate_cosine_similarity(v1, v2):
@@ -89,7 +93,9 @@ def calculate_metrics(response, answer):
 
     semantic_cohere = calculate_semantic_similarity(response, answer)
     semantic_transformers = calculate_ss_transformers(response, answer)
-    #bleu = calculate_BLEU(response, answer)
+    bleu = calculate_BLEU(response, answer)
+
+    st.session_state["bleu"] = bleu
     st.session_state["cohere"] = semantic_cohere
     st.session_state["transformers"] = semantic_transformers
 
@@ -98,6 +104,7 @@ def calculate_metrics(response, answer):
 if (response != "") and (answer != ""):
     button_click = st.button("Calculate scores", on_click =calculate_metrics(response, answer))
    #st.metric(label = "Memorization", value = st.session_state["Exact Match"])
+    st.metric(label = "BLEU", value = st.session_state["bleu"])
     st.metric(label = "Semantic Similarity Cohere", value = st.session_state["cohere"])
     st.metric(label = "Semantic Similarity Transformers", value = st.session_state["transformers"])
 
