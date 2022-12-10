@@ -3,6 +3,7 @@ import evaluate
 import cohere
 import numpy as np
 from nltk import jaccard_distance
+from textacy.preprocessing.remove import punctuation
 
 # create a textbox for input of response
 
@@ -49,7 +50,7 @@ def calculate_ROUGE(response, answer):
     pass
 
 def calculate_BLEU(response, answer):
-
+    # requires length 4
     #https://huggingface.co/spaces/evaluate-metric/bleu
 
     bleu_score = evaluate.load("sacrebleu")
@@ -87,6 +88,9 @@ def calculate_metrics(response, answer):
     #ex_match_score = ex_match_metric.compute(references = [answer], prediction = [response])
     #st.session_state["Exact Match"] = ex_match_score
     #jaq = jaccard_distance(response, answer)
+    
+    response = punctuation(response)
+    answer =  punctuation(answer)
 
     if (response == "") or (answer == ""):
         return 
