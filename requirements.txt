@@ -5,4 +5,5 @@ cohere
 nltk
 numpy
 textacy
+rouge_score
 sentence_transformers
