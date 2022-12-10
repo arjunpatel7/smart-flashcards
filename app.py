@@ -99,8 +99,8 @@ def calculate_entailment(response, answer):
     # given two sentences, determines if response follows answer or contradicts
     candidate_labels = ["ENTAILMENT", "CONTRADICTION"]
     result = et_classifier(response + ". " + answer,candidate_labels)
-    # return contradiction score
-    return result["labels"][0]
+    # return entailment score
+    return result["labels"][1]
 
 def calculate_metrics(response, answer):
     #ex_match_metric = evaluate.load("exact_match")
@@ -134,7 +134,7 @@ if (response != "") and (answer != ""):
    #st.metric(label = "Memorization", value = st.session_state["Exact Match"])
     st.metric(label = "BLEU", value = st.session_state["bleu"])
     st.metric(label = "ROUGE", value = st.session_state["rouge"])
-    st.metric(label = "Contradiction Probability?", value = st.session_state["et"])
+    st.metric(label = "Entailment Probability?", value = st.session_state["et"])
     st.metric(label = "Semantic Similarity Cohere", value = st.session_state["cohere"])
     st.metric(label = "Semantic Similarity Transformers", value = st.session_state["transformers"])
 
