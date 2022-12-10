@@ -6,4 +6,5 @@ nltk
 numpy
 textacy
 rouge_score
+transformers
 sentence_transformers
