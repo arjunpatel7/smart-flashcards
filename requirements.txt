@@ -3,3 +3,4 @@ evaluate
 cohere
 nltk
 numpy
+sentence_transformers
