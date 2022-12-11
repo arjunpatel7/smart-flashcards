@@ -15,15 +15,6 @@ if ('grade' not in st.session_state):
 if ('cohere' not in st.session_state):
     st.session_state["cohere"]= 0
 
-# if ('transformers' not in st.session_state):
-#     st.session_state["transformers"] = 0
-
-# if ('bleu' not in st.session_state):
-#     st.session_state["bleu"] = 0
-
-# if ('rouge' not in st.session_state):
-#     st.session_state["rouge"] = 0
-
 if ('entailment' not in st.session_state):
     st.session_state["et"] = 0
 
@@ -37,12 +28,7 @@ if ("current_card_question" not in st.session_state) and ("current_card_answer" 
     st.session_state["current_card_question"] = flashcards.Question[0]
     st.session_state["current_card_answer"] = flashcards.Answer[0]
 
-
-
-
 co = cohere.Client(st.secrets["cohere_key"])
-
-#et_classifier = pipeline('zero-shot-classification', model='roberta-large-mnli')
 
 API_URL = "https://api-inference.huggingface.co/models/roberta-large-mnli"
 API_TOKEN = st.secrets["huggingface"]
@@ -52,22 +38,6 @@ def query(payload):
     data = json.dumps(payload)
     response = requests.request("POST", API_URL, headers=headers, data=data)
     return json.loads(response.content.decode("utf-8"))
-
-
-
-
-# def calculate_ROUGE(response, answer):
-#     rouge = evaluate.load("rouge")
-#     result = rouge.compute(predictions = [response], references = [answer])["rougeL"]
-#     return result
-
-# def calculate_BLEU(response, answer):
-#     # requires length 4
-#     #https://huggingface.co/spaces/evaluate-metric/bleu
-
-#     bleu_score = evaluate.load("sacrebleu")
-#     return bleu_score.compute(references = [answer], predictions = [response],
-#     lowercase = True)["score"]/100
 
 
 def calculate_cosine_similarity(v1, v2):
@@ -87,13 +57,6 @@ def calculate_semantic_similarity(response, answer):
     
     return cos_sim
 
-# from sentence_transformers import SentenceTransformer, util
-# mod = SentenceTransformer("all-MiniLM-L6-v2")
-
-# def calculate_ss_transformers(response, answer):
-#     e1 = mod.encode(response)
-#     e2 = mod.encode(answer)
-#     return util.cos_sim(e1, e2)
 
 def calculate_entailment_api(response, answer):
     data = query(
@@ -109,42 +72,31 @@ def calculate_entailment_api(response, answer):
             return result["score"]
 
 
-
-
 def calculate_metrics(resp, ans):
-    #ex_match_metric = evaluate.load("exact_match")
-    #ex_match_score = ex_match_metric.compute(references = [answer], prediction = [response])
-    #st.session_state["Exact Match"] = ex_match_score
-    #jaq = jaccard_distance(response, answer)
     
     response = punctuation(resp)
     answer =  punctuation(ans)
 
 
     semantic_cohere = calculate_semantic_similarity(response, answer)
-    #semantic_transformers = calculate_ss_transformers(response, answer)
-    #bleu = calculate_BLEU(response, answer)
-    #rouge = calculate_ROUGE(response, answer)
-
     et = calculate_entailment_api(response, answer)
 
     st.session_state["et"] = et
-    #st.session_state["bleu"] = bleu
     st.session_state["cohere"] = semantic_cohere
-    #st.session_state["transformers"] = semantic_transformers
-    #st.session_state["rouge"] = rouge
 
 
-st.title("Smart Flashcards! Powered by AI")
+st.title("SmartFlash Companion: Powered by AI!")
 
+#dropdown for flashcards -> medical terminology deck
 
+with st.expander("Preview Medical Terminology Deck here!"):
+    st.dataframe(flashcards)
 
 question = st.text_area(label = "Question", 
     value = st.session_state["current_card_question"])
 
+response = st.text_area(label = "Write your answer here and wait a few seconds for feedback...", value = "", key = "response")
 
-
-response = st.text_area(label = "Write your answer here", value = "", key = "response")
 
 if st.session_state.num_calc > 0:
     st.write("The number of calculations is")
@@ -174,16 +126,16 @@ clear_card = st.button("Clear Entry", on_click=clear_entry)
 
 if (response != ""):
     calculate_metrics(response, st.session_state.current_card_answer)
-   #st.metric(label = "Memorization", value = st.session_state["Exact Match"])
+    # st.metric(label = "Memorization", value = st.session_state["Exact Match"])
     # st.metric(label = "BLEU", value = st.session_state["bleu"])
     # st.metric(label = "ROUGE", value = st.session_state["rouge"])
-    #st.metric(label = "Entailment Probability", value = 1 - st.session_state["et"])
-    #st.metric(label = "Semantic Similarity Cohere", value = st.session_state["cohere"])
+    # st.metric(label = "Entailment Probability", value = 1 - st.session_state["et"])
+    # st.metric(label = "Semantic Similarity Cohere", value = st.session_state["cohere"])
     # st.metric(label = "Semantic Similarity Transformers", value = st.session_state["transformers"])   
     cohere_score = st.session_state.cohere
     et_score = 1 - st.session_state.et
     total_evaluation = (cohere_score * 0.45) + (et_score * 0.55)
-    #st.metric(label = "Correctness Score", value = total_evaluation)
+    # st.metric(label = "Correctness Score", value = total_evaluation)
     if total_evaluation >= 0.80:
         # mark as correct, get next card, reset correctness
         st.success("You got that correct!")
@@ -194,6 +146,5 @@ if (response != ""):
         st.success("You are so close, keep trying!")
     else:
         st.error("Try again please! Our custom score shows you are off the mark")
-        #del st.session_state.response
 
 
