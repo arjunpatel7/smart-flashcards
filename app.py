@@ -17,14 +17,14 @@ if ('grade' not in st.session_state):
 if ('cohere' not in st.session_state):
     st.session_state["cohere"]= 0
 
-if ('transformers' not in st.session_state):
-    st.session_state["transformers"] = 0
+# if ('transformers' not in st.session_state):
+#     st.session_state["transformers"] = 0
 
-if ('bleu' not in st.session_state):
-    st.session_state["bleu"] = 0
+# if ('bleu' not in st.session_state):
+#     st.session_state["bleu"] = 0
 
-if ('rouge' not in st.session_state):
-    st.session_state["rouge"] = 0
+# if ('rouge' not in st.session_state):
+#     st.session_state["rouge"] = 0
 
 if ('entailment' not in st.session_state):
     st.session_state["et"] = 0
@@ -52,29 +52,19 @@ def query(payload):
 
 
 
-def calculate_jaccard(response, answer):
-    #bug having to do with strings and unions? 
 
-    # Given response, calculate how close it is exactly to the answer
+# def calculate_ROUGE(response, answer):
+#     rouge = evaluate.load("rouge")
+#     result = rouge.compute(predictions = [response], references = [answer])["rougeL"]
+#     return result
 
-    jd = jaccard_distance(set(answer), set(response))
+# def calculate_BLEU(response, answer):
+#     # requires length 4
+#     #https://huggingface.co/spaces/evaluate-metric/bleu
 
-    # get back similarity index which is correlate to memorization
-
-    return 1 - jd
-
-def calculate_ROUGE(response, answer):
-    rouge = evaluate.load("rouge")
-    result = rouge.compute(predictions = [response], references = [answer])["rougeL"]
-    return result
-
-def calculate_BLEU(response, answer):
-    # requires length 4
-    #https://huggingface.co/spaces/evaluate-metric/bleu
-
-    bleu_score = evaluate.load("sacrebleu")
-    return bleu_score.compute(references = [answer], predictions = [response],
-    lowercase = True)["score"]/100
+#     bleu_score = evaluate.load("sacrebleu")
+#     return bleu_score.compute(references = [answer], predictions = [response],
+#     lowercase = True)["score"]/100
 
 
 def calculate_cosine_similarity(v1, v2):
@@ -94,13 +84,13 @@ def calculate_semantic_similarity(response, answer):
     
     return cos_sim
 
-from sentence_transformers import SentenceTransformer, util
-mod = SentenceTransformer("all-MiniLM-L6-v2")
+# from sentence_transformers import SentenceTransformer, util
+# mod = SentenceTransformer("all-MiniLM-L6-v2")
 
-def calculate_ss_transformers(response, answer):
-    e1 = mod.encode(response)
-    e2 = mod.encode(answer)
-    return util.cos_sim(e1, e2)
+# def calculate_ss_transformers(response, answer):
+#     e1 = mod.encode(response)
+#     e2 = mod.encode(answer)
+#     return util.cos_sim(e1, e2)
 
 def calculate_entailment_api(response, answer):
     data = query(
@@ -112,7 +102,7 @@ def calculate_entailment_api(response, answer):
     #st.write(data)
     for result in data:
         # returns a list of dict that has each label and score
-        if result["label"] == "ENTAILMENT":
+        if result["label"] == "CONTRADICTION":
             return result["score"]
 
 
@@ -136,17 +126,17 @@ def calculate_metrics(resp, ans):
 
 
     semantic_cohere = calculate_semantic_similarity(response, answer)
-    semantic_transformers = calculate_ss_transformers(response, answer)
-    bleu = calculate_BLEU(response, answer)
-    rouge = calculate_ROUGE(response, answer)
+    #semantic_transformers = calculate_ss_transformers(response, answer)
+    #bleu = calculate_BLEU(response, answer)
+    #rouge = calculate_ROUGE(response, answer)
 
     et = calculate_entailment_api(response, answer)
 
     st.session_state["et"] = et
-    st.session_state["bleu"] = bleu
+    #st.session_state["bleu"] = bleu
     st.session_state["cohere"] = semantic_cohere
-    st.session_state["transformers"] = semantic_transformers
-    st.session_state["rouge"] = rouge
+    #st.session_state["transformers"] = semantic_transformers
+    #st.session_state["rouge"] = rouge
 
 
 st.title("Smart Flashcards! Powered by AI")
@@ -175,17 +165,24 @@ if next_card:
 if (response != ""):
     calculate_metrics(response, st.session_state.current_card_answer)
    #st.metric(label = "Memorization", value = st.session_state["Exact Match"])
-    st.metric(label = "BLEU", value = st.session_state["bleu"])
-    st.metric(label = "ROUGE", value = st.session_state["rouge"])
-    st.metric(label = "Entailment Probability", value = st.session_state["et"])
+    # st.metric(label = "BLEU", value = st.session_state["bleu"])
+    # st.metric(label = "ROUGE", value = st.session_state["rouge"])
+    st.metric(label = "Entailment Probability", value = 1 - st.session_state["et"])
     st.metric(label = "Semantic Similarity Cohere", value = st.session_state["cohere"])
-    st.metric(label = "Semantic Similarity Transformers", value = st.session_state["transformers"])   
-    if st.session_state.rouge >= 0.7:
+    # st.metric(label = "Semantic Similarity Transformers", value = st.session_state["transformers"])   
+    cohere_score = st.session_state.cohere
+    et_score = 1 - st.session_state.et
+    total_evaluation = (cohere_score * 0.45) + (et_score * 0.55)
+    st.metric(label = "Correctness Score", value = total_evaluation)
+    if total_evaluation >= 0.80:
         # mark as correct, get next card, reset correctness
         st.success("You got that correct!")
         st.session_state.grade = 1
-    else:
+    elif total_evaluation >= 0.70:
         st.session_state.grade = 0
+        st.success("You are so close, keep trying!")
+    else:
+        st.error("Try again please! Our custom score shows you are off the mark")
 
 
     
