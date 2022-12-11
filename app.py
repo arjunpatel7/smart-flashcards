@@ -5,16 +5,12 @@ import numpy as np
 from nltk import jaccard_distance
 from textacy.preprocessing.remove import punctuation
 from transformers import pipeline
+import pandas as pd
+import requests
+import json
 
-# create a textbox for input of response
-
-# create a textbox for input of answer
-
-# function to calculate metrics across these two
-
-# test with easy stuff
-
-# output metrics
+flashcards = pd.read_csv("flashcards.csv")
+# we need a way to get flashcard and iterable input...
 
 if ('memo' not in st.session_state):
     st.session_state["Exact Match"]= 0
@@ -34,10 +30,18 @@ if ('rouge' not in st.session_state):
 if ('entailment' not in st.session_state):
     st.session_state["et"] = 0
 
+if ('card_index' not in st.session_state):
+    st.session_state["card_index"] = 0
+
+if ("current_card_question" not in st.session_state):
+    st.session_state['current_card_question'] = flashcards.Question[0]
+    st.session_state["current_card_answer"] = flashcards.Answer[0]
+
+
+co = cohere.Client(st.secrets["cohere_key"])
 
 #et_classifier = pipeline('zero-shot-classification', model='roberta-large-mnli')
-import requests
-import json
+
 API_URL = "https://api-inference.huggingface.co/models/roberta-large-mnli"
 API_TOKEN = st.secrets["huggingface"]
 headers = {"Authorization": f"Bearer {API_TOKEN}"}
@@ -48,12 +52,6 @@ def query(payload):
     return json.loads(response.content.decode("utf-8"))
 
 
-co = cohere.Client(st.secrets["cohere_key"])
-
-st.title("Smart Flashcards! Powered by AI")
-
-response = st.text_input(label = "Write the response to your flashcard here", value = "")
-answer = st.text_input(label = "Write the correct answer to your flashcard here", value = "")
 
 def calculate_jaccard(response, answer):
     #bug having to do with strings and unions? 
@@ -120,8 +118,7 @@ def calculate_entailment_api(response, answer):
     })
     data = data[0]
 
-    actual_score = 0
-    st.write(data)
+    #st.write(data)
     for result in data:
         # returns a list of dict that has each label and score
         if result["label"] == "ENTAILMENT":
@@ -153,10 +150,38 @@ def calculate_metrics(response, answer):
     st.session_state["transformers"] = semantic_transformers
     st.session_state["rouge"] = rouge
 
+def get_next_card():
+    MAX_CARDS = len(flashcards.Question)
+    if st.session_state["card_index"] + 1 != MAX_CARDS:
+        st.session_state["card_index"] += 1
+        st.session_state["current_card_question"] = flashcards.Question[st.session_state["card_index"]]
+        st.session_state["current_card_answer"] = flashcards.Answer[st.session_state["card_index"]]
+    else:
+        st.session_state["card_index"] = 0
 
 
-if (response != "") and (answer != ""):
-    button_click = st.button("Calculate scores", on_click =calculate_metrics(response, answer))
+st.title("Smart Flashcards! Powered by AI")
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    #this will be the area someone records in
+    answer = st.text_input(label = "Write your answer here", value = "")
+
+with col2:
+    # the question will be located here
+    st.text_area(label = "Question", 
+    value = st.session_state["current_card_question"])
+
+with col3:
+    response = st.text_area(
+        label = "Correct Response", 
+        value = st.session_state["current_card_answer"])
+
+
+calc_button_click = st.button("Calculate scores", on_click =calculate_metrics(response, answer))
+next_card = st.button("Next Card", on_click = get_next_card())
+
+if (response != ""):
    #st.metric(label = "Memorization", value = st.session_state["Exact Match"])
     st.metric(label = "BLEU", value = st.session_state["bleu"])
     st.metric(label = "ROUGE", value = st.session_state["rouge"])
