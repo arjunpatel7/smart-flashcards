@@ -162,6 +162,8 @@ def get_next_card():
         st.session_state["current_card_answer"] = flashcards.Answer[st.session_state["card_index"]]
     else:
         st.session_state["card_index"] = 0
+        st.session_state["current_card_question"] = flashcards.Question[st.session_state["card_index"]]
+        st.session_state["current_card_answer"] = flashcards.Answer[st.session_state["card_index"]]
 
 next_card = st.button("Next Card", on_click = get_next_card)
 
@@ -175,13 +177,13 @@ if (response != ""):
    #st.metric(label = "Memorization", value = st.session_state["Exact Match"])
     # st.metric(label = "BLEU", value = st.session_state["bleu"])
     # st.metric(label = "ROUGE", value = st.session_state["rouge"])
-    st.metric(label = "Entailment Probability", value = 1 - st.session_state["et"])
-    st.metric(label = "Semantic Similarity Cohere", value = st.session_state["cohere"])
+    #st.metric(label = "Entailment Probability", value = 1 - st.session_state["et"])
+    #st.metric(label = "Semantic Similarity Cohere", value = st.session_state["cohere"])
     # st.metric(label = "Semantic Similarity Transformers", value = st.session_state["transformers"])   
     cohere_score = st.session_state.cohere
     et_score = 1 - st.session_state.et
     total_evaluation = (cohere_score * 0.45) + (et_score * 0.55)
-    st.metric(label = "Correctness Score", value = total_evaluation)
+    #st.metric(label = "Correctness Score", value = total_evaluation)
     if total_evaluation >= 0.80:
         # mark as correct, get next card, reset correctness
         st.success("You got that correct!")
