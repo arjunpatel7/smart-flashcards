@@ -1,8 +1,6 @@
 import streamlit as st
-import evaluate
 import cohere
 import numpy as np
-from nltk import jaccard_distance
 from textacy.preprocessing.remove import punctuation
 from transformers import pipeline
 import pandas as pd
