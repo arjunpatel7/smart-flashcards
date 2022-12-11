@@ -32,8 +32,8 @@ if ('entailment' not in st.session_state):
 if ('card_index' not in st.session_state):
     st.session_state["card_index"] = 0
 
-if ("current_card_question" not in st.session_state):
-    st.session_state['current_card_question'] = flashcards.Question[0]
+if ("current_card_question" not in st.session_state) and ("current_card_answer" not in st.session_state):
+    st.session_state["current_card_question"] = flashcards.Question[0]
     st.session_state["current_card_answer"] = flashcards.Answer[0]
 
 
@@ -102,14 +102,6 @@ def calculate_ss_transformers(response, answer):
     e2 = mod.encode(answer)
     return util.cos_sim(e1, e2)
 
-#def calculate_entailment(response, answer):
-#    # given two sentences, determines if response follows answer or contradicts
-#    candidate_labels = ["ENTAILMENT", "CONTRADICTION"]
-#    result = et_classifier(response + ". " + answer,candidate_labels)
-#    # return entailment score
-#    return result["labels"][1]
-
-
 def calculate_entailment_api(response, answer):
     data = query(
     {
@@ -124,27 +116,24 @@ def calculate_entailment_api(response, answer):
             return result["score"]
 
 
-
 def get_next_card():
     MAX_CARDS = len(flashcards.Question)
-    if st.session_state["card_index"] + 1 != MAX_CARDS:
+    if st.session_state["card_index"] + 1 < MAX_CARDS:
         st.session_state["card_index"] += 1
         st.session_state["current_card_question"] = flashcards.Question[st.session_state["card_index"]]
         st.session_state["current_card_answer"] = flashcards.Answer[st.session_state["card_index"]]
     else:
         st.session_state["card_index"] = 0
 
-def calculate_metrics(response, answer):
+def calculate_metrics(resp, ans):
     #ex_match_metric = evaluate.load("exact_match")
     #ex_match_score = ex_match_metric.compute(references = [answer], prediction = [response])
     #st.session_state["Exact Match"] = ex_match_score
     #jaq = jaccard_distance(response, answer)
     
-    response = punctuation(response)
-    answer =  punctuation(answer)
+    response = punctuation(resp)
+    answer =  punctuation(ans)
 
-    if (response == "") or (answer == ""):
-        return 
 
     semantic_cohere = calculate_semantic_similarity(response, answer)
     semantic_transformers = calculate_ss_transformers(response, answer)
@@ -159,48 +148,37 @@ def calculate_metrics(response, answer):
     st.session_state["transformers"] = semantic_transformers
     st.session_state["rouge"] = rouge
 
-    #update cards when correct
-
-    if st.session_state["rouge"] >= 0.99:
-        # mark as correct, get next card, reset correctness
-        st.session_state["grade"] == 1
-        st.success("Nice job, you got it correct!")
-        get_next_card()
-
-
 
 st.title("Smart Flashcards! Powered by AI")
-col1, col2, col3 = st.columns(3)
+next_card = st.button("Next Card")
+if next_card:
+    get_next_card()
 
-with col1:
-    #this will be the area someone records in
-    answer = st.text_area(label = "Write your answer here", value = "")
-
-with col2:
-    # the question will be located here
-    st.text_area(label = "Question", 
+st.text_area(label = "Question", 
     value = st.session_state["current_card_question"])
 
-with col3:
-    response = st.text_area(
-        label = "Correct Response", 
-        value = st.session_state["current_card_answer"])
+response = st.text_area(label = "Write your answer here", value = "")
+
+#answer = st.text_area(
+#        label = "Answer", 
+#        value = st.session_state["current_card_answer"])
 
 
-calc_button_click = st.button("Calculate scores", on_click =calculate_metrics,
-args = (response, answer))
-#next_card = st.button("Next Card", on_click = get_next_card())
+#calc_button_click = st.button("Calculate scores", on_click =calculate_metrics,
+#args = (response, answer))
+
 
 if (response != ""):
+    calculate_metrics(response, st.session_state.current_card_answer)
    #st.metric(label = "Memorization", value = st.session_state["Exact Match"])
     st.metric(label = "BLEU", value = st.session_state["bleu"])
     st.metric(label = "ROUGE", value = st.session_state["rouge"])
     st.metric(label = "Entailment Probability", value = st.session_state["et"])
     st.metric(label = "Semantic Similarity Cohere", value = st.session_state["cohere"])
     st.metric(label = "Semantic Similarity Transformers", value = st.session_state["transformers"])
-
-
-
+    if st.session_state.rouge >= 0.7:
+        # mark as correct, get next card, reset correctness
+        st.success("You got that correct!")
 
 
 
