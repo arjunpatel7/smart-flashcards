@@ -169,8 +169,6 @@ def calculate_metrics(response, answer):
 
 
 
-
-
 st.title("Smart Flashcards! Powered by AI")
 col1, col2, col3 = st.columns(3)
 
