@@ -12,7 +12,8 @@ import json
 flashcards = pd.read_csv("flashcards.csv")
 # we need a way to get flashcard and iterable input...
 
-
+if ('grade' not in st.session_state):
+    st.session_state["grade"] = ""
 if ('cohere' not in st.session_state):
     st.session_state["cohere"]= 0
 
@@ -123,6 +124,16 @@ def calculate_entailment_api(response, answer):
             return result["score"]
 
 
+
+def get_next_card():
+    MAX_CARDS = len(flashcards.Question)
+    if st.session_state["card_index"] + 1 != MAX_CARDS:
+        st.session_state["card_index"] += 1
+        st.session_state["current_card_question"] = flashcards.Question[st.session_state["card_index"]]
+        st.session_state["current_card_answer"] = flashcards.Answer[st.session_state["card_index"]]
+    else:
+        st.session_state["card_index"] = 0
+
 def calculate_metrics(response, answer):
     #ex_match_metric = evaluate.load("exact_match")
     #ex_match_score = ex_match_metric.compute(references = [answer], prediction = [response])
@@ -148,14 +159,16 @@ def calculate_metrics(response, answer):
     st.session_state["transformers"] = semantic_transformers
     st.session_state["rouge"] = rouge
 
-def get_next_card():
-    MAX_CARDS = len(flashcards.Question)
-    if st.session_state["card_index"] + 1 != MAX_CARDS:
-        st.session_state["card_index"] += 1
-        st.session_state["current_card_question"] = flashcards.Question[st.session_state["card_index"]]
-        st.session_state["current_card_answer"] = flashcards.Answer[st.session_state["card_index"]]
-    else:
-        st.session_state["card_index"] = 0
+    #update cards when correct
+
+    if st.session_state["rouge"] >= 0.99:
+        # mark as correct, get next card, reset correctness
+        st.session_state["grade"] == 1
+        st.success("Nice job, you got it correct!")
+        get_next_card()
+
+
+
 
 
 st.title("Smart Flashcards! Powered by AI")
@@ -163,7 +176,7 @@ col1, col2, col3 = st.columns(3)
 
 with col1:
     #this will be the area someone records in
-    answer = st.text_input(label = "Write your answer here", value = "")
+    answer = st.text_area(label = "Write your answer here", value = "")
 
 with col2:
     # the question will be located here
@@ -176,8 +189,9 @@ with col3:
         value = st.session_state["current_card_answer"])
 
 
-calc_button_click = st.button("Calculate scores", on_click =calculate_metrics(response, answer))
-next_card = st.button("Next Card", on_click = get_next_card())
+calc_button_click = st.button("Calculate scores", on_click =calculate_metrics,
+args = (response, answer))
+#next_card = st.button("Next Card", on_click = get_next_card())
 
 if (response != ""):
    #st.metric(label = "Memorization", value = st.session_state["Exact Match"])
@@ -186,6 +200,7 @@ if (response != ""):
     st.metric(label = "Entailment Probability", value = st.session_state["et"])
     st.metric(label = "Semantic Similarity Cohere", value = st.session_state["cohere"])
     st.metric(label = "Semantic Similarity Transformers", value = st.session_state["transformers"])
+
 
 
 
