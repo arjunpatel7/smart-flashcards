@@ -1,11 +1,6 @@
 streamlit
-evaluate
-sacrebleu
 cohere
-nltk
 numpy
 textacy
-rouge_score
-transformers
 requests
-sentence_transformers
+transformers
