@@ -134,6 +134,10 @@ if (response != ""):
     # st.metric(label = "Semantic Similarity Transformers", value = st.session_state["transformers"])   
     cohere_score = st.session_state.cohere
     et_score = 1 - st.session_state.et
+
+    # using entailment score inspired by discussion here
+    # https://stackoverflow.com/questions/69374258/sentence-similarity-models-not-capturing-opposite-sentences
+
     total_evaluation = (cohere_score * 0.45) + (et_score * 0.55)
     # st.metric(label = "Correctness Score", value = total_evaluation)
     if total_evaluation >= 0.80:
