@@ -150,14 +150,17 @@ def calculate_metrics(resp, ans):
 
 
 st.title("Smart Flashcards! Powered by AI")
-next_card = st.button("Next Card")
-if next_card:
-    get_next_card()
+
+
 
 st.text_area(label = "Question", 
     value = st.session_state["current_card_question"])
 
 response = st.text_area(label = "Write your answer here", value = "")
+next_card = st.button("Next Card")
+if next_card:
+    get_next_card()
+
 
 #answer = st.text_area(
 #        label = "Answer", 
@@ -166,6 +169,7 @@ response = st.text_area(label = "Write your answer here", value = "")
 
 #calc_button_click = st.button("Calculate scores", on_click =calculate_metrics,
 #args = (response, answer))
+#do st. for grade, change it, and have a routine on the chacne to update card
 
 
 if (response != ""):
@@ -175,13 +179,13 @@ if (response != ""):
     st.metric(label = "ROUGE", value = st.session_state["rouge"])
     st.metric(label = "Entailment Probability", value = st.session_state["et"])
     st.metric(label = "Semantic Similarity Cohere", value = st.session_state["cohere"])
-    st.metric(label = "Semantic Similarity Transformers", value = st.session_state["transformers"])
+    st.metric(label = "Semantic Similarity Transformers", value = st.session_state["transformers"])   
     if st.session_state.rouge >= 0.7:
         # mark as correct, get next card, reset correctness
         st.success("You got that correct!")
-
-
-
+        st.session_state.grade = 1
+    else:
+        st.session_state.grade = 0
 
 
     
