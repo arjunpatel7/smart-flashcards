@@ -12,8 +12,6 @@ import json
 flashcards = pd.read_csv("flashcards.csv")
 # we need a way to get flashcard and iterable input...
 
-if ('memo' not in st.session_state):
-    st.session_state["Exact Match"]= 0
 
 if ('cohere' not in st.session_state):
     st.session_state["cohere"]= 0
