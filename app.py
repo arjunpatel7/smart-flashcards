@@ -27,12 +27,17 @@ if ('cohere' not in st.session_state):
 if ('entailment' not in st.session_state):
     st.session_state["et"] = 0
 
+if ('num_calc' not in st.session_state):
+    st.session_state["num_calc"] = 0
+
 if ('card_index' not in st.session_state):
     st.session_state["card_index"] = 0
 
 if ("current_card_question" not in st.session_state) and ("current_card_answer" not in st.session_state):
     st.session_state["current_card_question"] = flashcards.Question[0]
     st.session_state["current_card_answer"] = flashcards.Answer[0]
+
+
 
 
 co = cohere.Client(st.secrets["cohere_key"])
@@ -104,14 +109,7 @@ def calculate_entailment_api(response, answer):
             return result["score"]
 
 
-def get_next_card():
-    MAX_CARDS = len(flashcards.Question)
-    if st.session_state["card_index"] + 1 < MAX_CARDS:
-        st.session_state["card_index"] += 1
-        st.session_state["current_card_question"] = flashcards.Question[st.session_state["card_index"]]
-        st.session_state["current_card_answer"] = flashcards.Answer[st.session_state["card_index"]]
-    else:
-        st.session_state["card_index"] = 0
+
 
 def calculate_metrics(resp, ans):
     #ex_match_metric = evaluate.load("exact_match")
@@ -141,24 +139,36 @@ st.title("Smart Flashcards! Powered by AI")
 
 
 
-st.text_area(label = "Question", 
+question = st.text_area(label = "Question", 
     value = st.session_state["current_card_question"])
 
-response = st.text_area(label = "Write your answer here", value = "")
-next_card = st.button("Next Card")
-if next_card:
-    get_next_card()
 
 
-#answer = st.text_area(
-#        label = "Answer", 
-#        value = st.session_state["current_card_answer"])
+response = st.text_area(label = "Write your answer here", value = "", key = "response")
+
+if st.session_state.num_calc > 0:
+    st.write("The number of calculations is")
+    st.write(st.session_state.num_calc)
+    del st.session_state.response
 
 
-#calc_button_click = st.button("Calculate scores", on_click =calculate_metrics,
-#args = (response, answer))
-#do st. for grade, change it, and have a routine on the chacne to update card
+def get_next_card():
+    # clear the original values
+    st.session_state["response"] = ""
+    MAX_CARDS = len(flashcards.Question)
+    if st.session_state["card_index"] + 1 < MAX_CARDS:
+        st.session_state["card_index"] += 1
+        st.session_state["current_card_question"] = flashcards.Question[st.session_state["card_index"]]
+        st.session_state["current_card_answer"] = flashcards.Answer[st.session_state["card_index"]]
+    else:
+        st.session_state["card_index"] = 0
 
+next_card = st.button("Next Card", on_click = get_next_card)
+
+def clear_entry():
+    st.session_state["response"] = ""
+
+clear_card = st.button("Clear Entry", on_click=clear_entry)
 
 if (response != ""):
     calculate_metrics(response, st.session_state.current_card_answer)
@@ -176,13 +186,12 @@ if (response != ""):
         # mark as correct, get next card, reset correctness
         st.success("You got that correct!")
         st.session_state.grade = 1
+        st.text_area(label = "The actual answer is...", value = st.session_state["current_card_answer"])
     elif total_evaluation >= 0.70:
         st.session_state.grade = 0
         st.success("You are so close, keep trying!")
     else:
         st.error("Try again please! Our custom score shows you are off the mark")
-
-
-    
+        #del st.session_state.response
 
 
