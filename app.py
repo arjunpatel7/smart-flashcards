@@ -6,6 +6,16 @@ from transformers import pipeline
 import pandas as pd
 import requests
 import json
+import websockets
+import asyncio
+import base64
+import os
+from pathlib import Path
+import pyaudio
+
+if ('text' not in st.session_state) and ('run' not in st.session_state):
+    st.session_state["text"] = ""
+    st.session_state["run"] = False
 
 flashcards = pd.read_csv("flashcards.csv")
 # we need a way to get flashcard and iterable input...
@@ -14,15 +24,6 @@ if ('grade' not in st.session_state):
     st.session_state["grade"] = ""
 if ('cohere' not in st.session_state):
     st.session_state["cohere"]= 0
-
-# if ('transformers' not in st.session_state):
-#     st.session_state["transformers"] = 0
-
-# if ('bleu' not in st.session_state):
-#     st.session_state["bleu"] = 0
-
-# if ('rouge' not in st.session_state):
-#     st.session_state["rouge"] = 0
 
 if ('entailment' not in st.session_state):
     st.session_state["et"] = 0
@@ -38,7 +39,11 @@ if ("current_card_question" not in st.session_state) and ("current_card_answer" 
     st.session_state["current_card_answer"] = flashcards.Answer[0]
 
 
-
+FRAMES_PER_BUFFER = 3200
+FORMAT = pyaudio.paInt16
+CHANNELS = 1
+RATE = 16000
+p = pyaudio.PyAudio()
 
 co = cohere.Client(st.secrets["cohere_key"])
 
@@ -52,22 +57,6 @@ def query(payload):
     data = json.dumps(payload)
     response = requests.request("POST", API_URL, headers=headers, data=data)
     return json.loads(response.content.decode("utf-8"))
-
-
-
-
-# def calculate_ROUGE(response, answer):
-#     rouge = evaluate.load("rouge")
-#     result = rouge.compute(predictions = [response], references = [answer])["rougeL"]
-#     return result
-
-# def calculate_BLEU(response, answer):
-#     # requires length 4
-#     #https://huggingface.co/spaces/evaluate-metric/bleu
-
-#     bleu_score = evaluate.load("sacrebleu")
-#     return bleu_score.compute(references = [answer], predictions = [response],
-#     lowercase = True)["score"]/100
 
 
 def calculate_cosine_similarity(v1, v2):
@@ -87,13 +76,6 @@ def calculate_semantic_similarity(response, answer):
     
     return cos_sim
 
-# from sentence_transformers import SentenceTransformer, util
-# mod = SentenceTransformer("all-MiniLM-L6-v2")
-
-# def calculate_ss_transformers(response, answer):
-#     e1 = mod.encode(response)
-#     e2 = mod.encode(answer)
-#     return util.cos_sim(e1, e2)
 
 def calculate_entailment_api(response, answer):
     data = query(
@@ -135,6 +117,20 @@ def calculate_metrics(resp, ans):
     #st.session_state["rouge"] = rouge
 
 
+stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE,input=True,
+frames_per_buffer=FRAMES_PER_BUFFER)
+
+
+def start_listening():
+    st.session_state["run"] = True
+
+def stop_listening():
+    st.session_state["run"] = False
+    # write code to dump stuff?
+    st.session_state["num_calc"] = 1
+
+
+
 st.title("Smart Flashcards! Powered by AI")
 
 
@@ -144,17 +140,69 @@ question = st.text_area(label = "Question",
 
 
 
-response = st.text_area(label = "Write your answer here", value = "", key = "response")
+st.button('Start', on_click = start_listening)
+st.button('Stop', on_click=stop_listening)
 
-if st.session_state.num_calc > 0:
-    st.write("The number of calculations is")
-    st.write(st.session_state.num_calc)
-    del st.session_state.response
+# make sure to write and read from text instead of response
 
+async def send_receive():
+    url = f"wss://api.assemblyai.com/v2/realtime/ws?sample_rate={RATE}"
+
+    async with websockets.connect(
+        url,
+        extra_headers = (("Authorization", st.secrets['assembly_ai']),),
+        ping_interval = 5,
+        ping_timeout = 20
+    ) as _ws:
+            r = await asyncio.sleep(0.1)
+            session_begins = await _ws.recv()
+
+
+
+            async def send():
+                while st.session_state["run"]:
+                    try:
+                        data = stream.read(FRAMES_PER_BUFFER)
+                        data = base64.b64encode(data).decode("utf-8")
+                        json_data = json.dumps({"audio_data":str(data)})
+                        r = await _ws.send(json_data)
+                    except websockets.exceptions.ConnectionClosedError as e:
+                        print(e)
+                    except Exception as e:
+                        print(e)
+                    r = await asyncio.sleep(0.01)
+            async def receive():
+                while st.session_state["run"]:
+                    try:
+                        result_str = await _ws.recv()
+                        result = json.loads(result_str)["text"]
+
+                        if json.loads(result_str)["message_type"] == 'FinalTranscript':
+                            st.session_state["text"] = result
+                            st.write(st.session_state.text)
+
+                            with open('transcription.txt', 'a') as transcript:
+
+                                transcript.write(st.session_state["text"])
+                                transcript.write(' ')
+                    except websockets.exceptions.ConnectionClosedError as e:
+                        print(e)
+                    except Exception as e:
+                        print(e)
+            send_result, receive_result = await asyncio.gather(send(), receive())
+
+
+asyncio.run(send_receive())
+
+
+def read_transcript():
+    with open("transcription.txt", "r") as t:
+        return t.readlines()[0]
 
 def get_next_card():
     # clear the original values
-    st.session_state["response"] = ""
+    st.session_state["text"] = ""
+    st.session_state["num_calc"] = 0
     MAX_CARDS = len(flashcards.Question)
     if st.session_state["card_index"] + 1 < MAX_CARDS:
         st.session_state["card_index"] += 1
@@ -167,13 +215,17 @@ def get_next_card():
 
 next_card = st.button("Next Card", on_click = get_next_card)
 
-def clear_entry():
-    st.session_state["response"] = ""
+#def clear_entry():
+#    st.session_state["response"] = ""
 
-clear_card = st.button("Clear Entry", on_click=clear_entry)
+#clear_card = st.button("Clear Entry", on_click=clear_entry)
 
-if (response != ""):
-    calculate_metrics(response, st.session_state.current_card_answer)
+if (st.session_state["num_calc"] == 1):
+    t = read_transcript()
+    st.write("text is the following...")
+    st.write(st.session_state["text"])
+    text = t.lower()
+    calculate_metrics(text, st.session_state.current_card_answer)
    #st.metric(label = "Memorization", value = st.session_state["Exact Match"])
     # st.metric(label = "BLEU", value = st.session_state["bleu"])
     # st.metric(label = "ROUGE", value = st.session_state["rouge"])
@@ -183,7 +235,7 @@ if (response != ""):
     cohere_score = st.session_state.cohere
     et_score = 1 - st.session_state.et
     total_evaluation = (cohere_score * 0.45) + (et_score * 0.55)
-    #st.metric(label = "Correctness Score", value = total_evaluation)
+    st.metric(label = "Correctness Score", value = total_evaluation)
     if total_evaluation >= 0.80:
         # mark as correct, get next card, reset correctness
         st.success("You got that correct!")
